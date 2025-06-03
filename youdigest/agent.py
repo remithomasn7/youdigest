@@ -28,7 +28,7 @@ prompt = ChatPromptTemplate.from_messages(
 chain = prompt | llm
 
 # Function to summarize text using the defined chain
-def summarize(text):
+def summarize(text: str) -> str:
     """
     Summarizes the input text using Mistral via LangChain.
     """
