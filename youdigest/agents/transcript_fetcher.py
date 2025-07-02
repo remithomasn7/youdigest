@@ -1,68 +1,53 @@
-import time
-from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api.formatters import TextFormatter
-from youtube_transcript_api._errors import (
-    NoTranscriptFound,
-    TranscriptsDisabled,
-    VideoUnavailable,
-    RequestBlocked
-)
+import subprocess
+import json
+import os
+from typing import Optional
 
 class TranscriptFetcher:
-    def __init__(self, lang: str = "en", max_retries: int = 3, retry_delay: float = 2.0):
+    def __init__(self, lang: str = "en"):
         self.lang = lang
-        self.max_retries = max_retries
-        self.retry_delay = retry_delay
 
-    def extract_video_id(self, youtube_url: str) -> str:
-        """
-        Extract the video ID from a YouTube URL.
-        """
-        if "v=" in youtube_url:
-            return youtube_url.split("v=")[1].split("&")[0]
-        elif "youtu.be/" in youtube_url:
-            return youtube_url.split("youtu.be/")[1].split("?")[0]
-        else:
-            raise ValueError("URL YouTube invalide")
+    def fetch_transcript(self, youtube_url: str) -> Optional[str]:
+        video_id = youtube_url.split("v=")[-1]
+        transcript_path = f"{video_id}.{self.lang}.json3"
 
-    def fetch_transcript(self, youtube_url: str) -> str:
-        try:
-            video_id = self.extract_video_id(youtube_url)
-            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        # 1. Essaye de récupérer les sous-titres manuels
+        cmd_manual = [
+            "yt-dlp",
+            "--write-subs",
+            "--sub-lang", self.lang,
+            "--skip-download",
+            "--sub-format", "json3",
+            "-o", "%(id)s.%(ext)s",
+            youtube_url
+        ]
+        subprocess.run(cmd_manual, check=False)
 
-            try:
-                # Priorité : transcript manuel
-                transcript = transcript_list.find_manually_created_transcript([self.lang])
-            except NoTranscriptFound:
-                try:
-                    # Sinon transcript généré
-                    transcript = transcript_list.find_transcript([self.lang])
-                except NoTranscriptFound:
-                    # Sinon traduire depuis une autre langue
-                    transcript = transcript_list.find_transcript(['en', 'fr', 'de']).translate(self.lang)
+        # 2. Si pas de sous-titres manuels, essaye les auto
+        if not os.path.exists(transcript_path):
+            cmd_auto = [
+                "yt-dlp",
+                "--write-auto-sub",
+                "--sub-lang", self.lang,
+                "--skip-download",
+                "--sub-format", "json3",
+                "-o", "%(id)s.%(ext)s",
+                youtube_url
+            ]
+            subprocess.run(cmd_auto, check=False)
 
-            segments = self._fetch_with_retries(transcript)
-            return self._segments_to_text(segments)
+        if not os.path.exists(transcript_path):
+            return None
 
-        except (TranscriptsDisabled, NoTranscriptFound, VideoUnavailable) as e:
-            return f"[Transcript indisponible] {e}"
-        except RequestBlocked:
-            return "[Trop de requêtes] Attends un peu ou change d'IP."
-        except Exception as e:
-            return f"[Erreur inattendue] {e}"
+        # Charge et concatène le texte du transcript
+        with open(transcript_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        segments = [e["segs"][0]["utf8"] for e in data["events"] if "segs" in e]
+        transcript = " ".join(segments)
 
-    def _fetch_with_retries(self, transcript) -> list:
-        for attempt in range(self.max_retries):
-            try:
-                return transcript.fetch()
-            except Exception as e:
-                if attempt < self.max_retries - 1:
-                    time.sleep(self.retry_delay)
-                else:
-                    raise Exception(f"Échec fetch après {self.max_retries} tentatives : {e}")
-
-    def _segments_to_text(self, segments: list) -> str:
-        return " ".join(segment.text for segment in segments)
+        # Nettoie le fichier temporaire
+        os.remove(transcript_path)
+        return transcript
 
 
 
