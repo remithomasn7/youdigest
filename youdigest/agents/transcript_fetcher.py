@@ -48,21 +48,3 @@ class TranscriptFetcher:
         # Nettoie le fichier temporaire
         os.remove(transcript_path)
         return transcript
-
-
-
-#def extract_video_id(youtube_url: str) -> str:
-#    """
-#    Extrait l'identifiant de vidéo à partir d'une URL YouTube.
-#    """
-#    query = urlparse(youtube_url)
-#    if query.hostname == 'youtu.be':
-#        return query.path[1:]
-#    if query.hostname in ('www.youtube.com', 'youtube.com'):
-#        if query.path == '/watch':
-#            return parse_qs(query.query).get('v', [None])[0]
-#        if query.path.startswith('/embed/'):
-#            return query.path.split('/')[2]
-#        if query.path.startswith('/v/'):
-#            return query.path.split('/')[2]
-#    raise ValueError("URL YouTube non reconnue")
