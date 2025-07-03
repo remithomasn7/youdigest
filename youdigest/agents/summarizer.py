@@ -3,34 +3,26 @@ from dotenv import load_dotenv
 from langchain_mistralai import ChatMistralAI
 from langchain_core.prompts import ChatPromptTemplate
 
-# Load environment variables from .env file
-load_dotenv()
-MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+class Summarizer:
+    def __init__(self, api_key: str = None, model: str = "mistral-large-latest", temperature: float = 0):
+        # Load environment variables from .env file
+        load_dotenv()
+        self.api_key = api_key or os.getenv("MISTRAL_API_KEY")
+        if not self.api_key:
+            raise ValueError("MISTRAL_API_KEY is not set.")
 
-# Initialize the Mistral AI model
-llm = ChatMistralAI(
-    model="mistral-large-latest",
-    temperature=0
-)
+        # Initialize the Mistral AI model
+        self.llm = ChatMistralAI(
+            model=model,
+            temperature=temperature,
+            mistral_api_key=self.api_key
+        )
+        self.prompt = ChatPromptTemplate.from_messages([
+            ("system", "You are an assistant that summarizes long transcripts into concise bullet points."),
+            ("human", "{input}"),
+        ])
+        self.chain = self.prompt | self.llm
 
-# Define the prompt template
-prompt = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            "You are an assistant that summarizes long transcripts into concise bullet points.",
-        ),
-        ("human", "{input}"),
-    ]
-)
-
-# Create a chain that combines the prompt and the LLM
-chain = prompt | llm
-
-# Function to summarize text using the defined chain
-def summarize(text: str) -> str:
-    """
-    Summarizes the input text using Mistral via LangChain.
-    """
-    result = chain.invoke({"input": text})
-    return result.content
+    def summarize(self, text: str) -> str:
+        result = self.chain.invoke({"input": text})
+        return result.content

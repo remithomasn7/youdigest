@@ -1,9 +1,8 @@
 from youdigest.agents.transcript_fetcher import TranscriptFetcher
-from youdigest.agents.summarizer import summarize
+from youdigest.agents.summarizer import Summarizer
 
 # 
 # https://python.langchain.com/docs/integrations/document_loaders/youtube_transcript/
-from langchain_community.document_loaders import YoutubeLoader
 
 if __name__ == "__main__":
     youtube_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
@@ -14,5 +13,7 @@ if __name__ == "__main__":
     #print(transcript)
     
     # Then, summarize the transcript using the summarizer
-    summary = summarize(transcript)
+    # Summarize the transcript
+    summarizer = Summarizer(model="mistral-tiny", temperature=0.1)
+    summary = summarizer.summarize(transcript)
     print(summary)
